@@ -5,3 +5,7 @@ Summary: ampli_clean
 Home-page: https://github.com/Desperate-Dan/ampli_clean
 Author: Daniel Maloney
 Author-email: dmaloney@ed.ac.uk
+Requires-Dist: biopython
+Requires-Dist: pysam
+Requires-Dist: numpy
+Requires-Dist: mappy

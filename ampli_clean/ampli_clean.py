@@ -7,14 +7,7 @@ import pysam
 import sys
 from collections import defaultdict
 import re
-import mappy as mp
 
-
-#def read_mapping(ref_file, input_reads):
-    #Map using mappy
-#    for record in input_reads[1:]:
-#        print(record)
-        
 
 def bed_file_reader(input_bed):
     #Read a bed file in format CHR, start_pos, end_pos, primer_id, etc and return an amplicon dictionary
@@ -72,17 +65,18 @@ def sam_sort_index(output_name):
 def bam_to_fq(output_name):
     #Return your cleaned bam to fq for sticking into fieldbioinf
 
-    fq = pysam.fastq("-0", "%s.fastq.gz" % output_name, "%s.sorted.bam" % output_name)
+    fq = pysam.fastq("-0", "%s.fastq.gz" % output_name, "%s.bam" % output_name)
 
     return fq
 
 
 def runner(args):
-#    read_mapping(args.input_ref,args.reads)
     primer_position_dict = bed_file_reader(args.input_bed)
     rsv_clean_main(args.input_file,args.ref_name,args.output_name,primer_position_dict,args.wobble)
-    sam_sort_index(args.output_name)
-    bam_to_fq(args.output_name)
+    if args.out_sort:
+        sam_sort_index(args.output_name)
+    if args.out_fastq:
+        bam_to_fq(args.output_name)
 
 
 def main():
@@ -98,16 +92,17 @@ def main():
                             help='Name of ref the bam files were aligned to. Default = "RSVA"')
     parser.add_argument('-o', '--output-name', dest='output_name', default="clean",
                             help='Prefix for the output. Default = "clean"')
+    parser.add_argument('-s', dest = 'out_sort', action='store_true',
+                            help='Output sorted and indexed bam')
+    parser.add_argument('-f', '--fastq', dest = 'out_fastq', action='store_true',
+                            help='Output cleaned fastq file')
+
     
     required_group = parser.add_argument_group('required arguments')
     required_group.add_argument('-i', '--input', dest = 'input_file',
                             help='Path to the BAM file you want to clean')
     required_group.add_argument('-b', '--bed', dest = 'input_bed',
                             help='Path to the bed file you want to get positions from')
-    required_group.add_argument('-r', '--ref', dest = 'input_ref',
-                            help='Path to the reference file to map against, can handle competitive mapping')
-    required_group.add_argument('-f', '--fastq', dest = 'reads', type=list,
-                            help='Path to input fastqs')
 
 
     args = parser.parse_args()

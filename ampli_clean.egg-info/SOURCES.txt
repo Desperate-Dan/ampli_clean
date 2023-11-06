@@ -2,6 +2,7 @@ setup.py
 ampli_clean/__init__.py
 ampli_clean/ampli_clean.py
 ampli_clean/pysam_tests.py
+ampli_clean/test.py
 ampli_clean.egg-info/PKG-INFO
 ampli_clean.egg-info/SOURCES.txt
 ampli_clean.egg-info/dependency_links.txt
