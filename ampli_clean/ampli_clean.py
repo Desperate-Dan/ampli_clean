@@ -9,6 +9,10 @@ from collections import defaultdict
 import re
 
 
+def mini_mapper():
+    os.system("minimap2...")
+
+
 def bed_file_reader(input_bed):
     #Read a bed file in format CHR, start_pos, end_pos, primer_id, etc and return an amplicon dictionary
     #Currently does not handle "alt" primers

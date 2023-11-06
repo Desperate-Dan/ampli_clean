@@ -9,6 +9,7 @@ from collections import defaultdict
 import re
 
 
+
 def bed_file_reader(input_bed):
     #Read a bed file in format CHR, start_pos, end_pos, primer_id, etc and return an amplicon dictionary
     #Currently does not handle "alt" primers
@@ -71,6 +72,7 @@ def bam_to_fq(output_name):
 
 
 def runner(args):
+    os.system("sl")
     primer_position_dict = bed_file_reader(args.input_bed)
     rsv_clean_main(args.input_file,args.ref_name,args.output_name,primer_position_dict,args.wobble)
     if args.out_sort:

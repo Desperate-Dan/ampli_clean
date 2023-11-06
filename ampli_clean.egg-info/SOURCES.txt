@@ -1,3 +1,4 @@
+README.md
 setup.py
 ampli_clean/__init__.py
 ampli_clean/ampli_clean.py
