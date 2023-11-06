@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: ampli-clean
+Version: 0.0.1
+Summary: ampli_clean
+Author: Daniel Maloney
+Author-email: dmaloney@ed.ac.uk
+Requires-Dist: biopython
+Requires-Dist: pysam
+Requires-Dist: numpy
+Requires-Dist: mappy
