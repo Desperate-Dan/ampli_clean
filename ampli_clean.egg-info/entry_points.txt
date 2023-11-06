@@ -1,2 +1,2 @@
 [console_scripts]
-rsv_clean = ampli_clean:main
+ampli_clean = ampli_clean:main

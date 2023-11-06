@@ -10,7 +10,7 @@ setup(
     name='ampli_clean',
     version='0.0.1',    
     description='ampli_clean',
-    #url='https://github.com/Desperate-Dan/maskara',
+    url='https://github.com/Desperate-Dan/ampli_clean',
     author='Daniel Maloney',
     author_email='dmaloney@ed.ac.uk',
     packages=find_packages(),
