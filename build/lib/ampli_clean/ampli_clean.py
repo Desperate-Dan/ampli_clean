@@ -99,21 +99,20 @@ def ampli_clean(input_file,ref_names,output_name, primer_position_dict, wobble):
     return outfile
 
 
-def sam_sort_index(output_name,ref_names):
+def sam_sort_index(output_name,ref_name):
     #Sort and index your bam file. Works on the assumption that the outfile is the correct name for your bam, may need to change.
-    for ref in ref_names:
-        clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref), "%s.%s.clean.bam" % (output_name, ref))
-        clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref))    
-    
-        return clean_bam_sorted, clean_bam_index
+
+    clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
+    clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref_name))    
+
+    return clean_bam_sorted, clean_bam_index
 
 
-def bam_to_fq(output_name,ref_names):
+def bam_to_fq(output_name,ref_name):
     #Return your cleaned bam to fq for sticking into fieldbioinf
-    for ref in ref_names:
-        fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref), "%s.%s.clean.bam" % (output_name, ref))
+    fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
 
-        return fq
+    return fq
 
 
 def runner(args):
@@ -122,9 +121,11 @@ def runner(args):
     primer_position_dict = bed_file_reader(args.input_bed)
     ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,primer_position_dict,args.wobble)
     if args.out_sort:
-        sam_sort_index(args.output_name,ref_names)
+        for ref in ref_names:
+            sam_sort_index(args.output_name,ref)
     if args.out_fastq:
-        bam_to_fq(args.output_name,ref_names)
+        for ref in ref_names:
+            bam_to_fq(args.output_name,ref)
 
 
 def main():
