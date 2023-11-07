@@ -9,6 +9,7 @@ from collections import defaultdict
 import re
 import gzip
 
+#Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed?
 
 def read_parser(input_files):
     #Deal with the read file input...currently need one read file for input to minimap2
@@ -145,7 +146,7 @@ def main():
     required_group.add_argument('-r', '--refs', dest = 'input_ref',
                             help='Path to input ref fasta')
     required_group.add_argument('-f', dest = 'input_reads', nargs='+',
-                            help='Path to input fastq')
+                            help='Path to input fastq, currently expects them to be gzipped')
     required_group.add_argument('-i', '--input', dest = 'input_file',
                             help='Path to the BAM file you want to clean')
     required_group.add_argument('-b', '--bed', dest = 'input_bed',
