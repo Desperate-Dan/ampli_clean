@@ -9,7 +9,7 @@ from collections import defaultdict
 import re
 import gzip
 
-#Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed?
+#Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed!
 
 def read_parser(input_files):
     #Deal with the read file input...currently need one read file for input to minimap2
