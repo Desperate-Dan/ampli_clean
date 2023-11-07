@@ -9,24 +9,29 @@ from collections import defaultdict
 import re
 import gzip
 
+#Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed!
 
-def read_parser(input_files):
+def read_parser(input_files,filter=False):
     #Deal with the read file input...currently need one read file for input to minimap2
     #This is probably an overly complicated way of doing this, especially if there is no filtering to do...
 
-    counter = 1
-    read_bin = gzip.open("binned_reads.fastq.gz", "wt")
-    for file in input_files:
-        os.system("echo Binning read file %s" % counter)
-        read_file = gzip.open(file, "rt")
-        for record in SeqIO.parse(read_file, "fastq"):
-            #Could do some read filtering here in future    
-            SeqIO.write(record, read_bin, "fastq")
-        read_file.close()
-        counter += 1
-    read_bin.close()
+    if filter:
+        read_bin = gzip.open("binned_reads.fastq.gz", "wt")
+        counter = 1    
+        for file in input_files:
+            os.system("echo Binning read file %s" % counter)
+            read_file = gzip.open(file, "rt")
+            for record in SeqIO.parse(read_file, "fastq"):
+                #Could do some read filtering here in future    
+                SeqIO.write(record, read_bin, "fastq")
+            read_file.close()
+            counter += 1
+        read_bin.close()
+        return read_bin
 
-    return read_bin
+    else:
+        #Simple but gross looking command to run zcat, probably a more succinct way of calling this
+        os.system("zcat %s > ./binned_reads.fastq.gz" % str(input_files).replace(",","").lstrip("[").rstrip("]"))
 
 
 def mini_mapper(output_name, input_ref):
@@ -145,7 +150,7 @@ def main():
     required_group.add_argument('-r', '--refs', dest = 'input_ref',
                             help='Path to input ref fasta')
     required_group.add_argument('-f', dest = 'input_reads', nargs='+',
-                            help='Path to input fastq')
+                            help='Path to input fastq, currently expects them to be gzipped')
     required_group.add_argument('-i', '--input', dest = 'input_file',
                             help='Path to the BAM file you want to clean')
     required_group.add_argument('-b', '--bed', dest = 'input_bed',

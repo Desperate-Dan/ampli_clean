@@ -11,23 +11,27 @@ import gzip
 
 #Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed!
 
-def read_parser(input_files):
+def read_parser(input_files,filter=False):
     #Deal with the read file input...currently need one read file for input to minimap2
     #This is probably an overly complicated way of doing this, especially if there is no filtering to do...
 
-    counter = 1
-    read_bin = gzip.open("binned_reads.fastq.gz", "wt")
-    for file in input_files:
-        os.system("echo Binning read file %s" % counter)
-        read_file = gzip.open(file, "rt")
-        for record in SeqIO.parse(read_file, "fastq"):
-            #Could do some read filtering here in future    
-            SeqIO.write(record, read_bin, "fastq")
-        read_file.close()
-        counter += 1
-    read_bin.close()
+    if filter:
+        read_bin = gzip.open("binned_reads.fastq.gz", "wt")
+        counter = 1    
+        for file in input_files:
+            os.system("echo Binning read file %s" % counter)
+            read_file = gzip.open(file, "rt")
+            for record in SeqIO.parse(read_file, "fastq"):
+                #Could do some read filtering here in future    
+                SeqIO.write(record, read_bin, "fastq")
+            read_file.close()
+            counter += 1
+        read_bin.close()
+        return read_bin
 
-    return read_bin
+    else:
+        #Simple but gross looking command to run zcat, probably a more succinct way of calling this
+        os.system("zcat %s > ./binned_reads.fastq.gz" % str(input_files).replace(",","").lstrip("[").rstrip("]"))
 
 
 def mini_mapper(output_name, input_ref):
