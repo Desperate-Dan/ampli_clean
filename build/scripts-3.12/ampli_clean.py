@@ -76,14 +76,20 @@ def bed_file_reader(input_bed):
     return primer_pos_dict, bed_ref
 
 
-def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble):
+def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=False):
     #This code iterates through the bam file and checks if each read starts and ends within a pair of primer positions.
     
     #Open the alignment file - expects BAM at the moment.
     aln_file = pysam.AlignmentFile(input_file,'rb')
 
+    read_count_dict = map_stats(ref_names,aln_file)
+
+    if not all_vs_all or len(bed_dict) == 1 :
+        ref_names = []
+        ref_names.append(max(read_count_dict, key=read_count_dict.get))
+    
     for ref in ref_names:
-        primer_position_dict = bed_dict[ref]
+        primer_position_dict = bed_dict[ref] #Should add an error check here for if the bed ref and the fasta ref names match - perhaps could ignore this step if there is only one bed file given?
         #For each ref mapped against set up some files
         print("cleaning %s..." % ref)
         outfile = pysam.AlignmentFile("%s.%s.clean.bam" % (output_name, ref), "wb", template=aln_file)
@@ -99,12 +105,12 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble):
 
     aln_file.close()
     
-    return outfile
+    return ref_names
 
 
 def sam_sort_index(output_name,ref_name):
     #Sort and index your bam file. Works on the assumption that the outfile is the correct name for your bam, may need to change.
-
+    print("sorting and indexing %s..." % ref_name)
     clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
     clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref_name))    
 
@@ -112,23 +118,33 @@ def sam_sort_index(output_name,ref_name):
 
 
 def bam_to_fq(output_name,ref_name):
+    print("extracting %s fastqs..." % ref_name)
     #Return your cleaned bam to fq for sticking into fieldbioinf
     fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
 
     return fq
+
+def map_stats(ref_names, aln_file):
+    read_count_dict = {}
+    for ref in ref_names:
+        read_count_dict[ref] = aln_file.count(ref)
+        print("%s has ~%s mapped reads..." % (ref, read_count_dict[ref]))
+    
+    return read_count_dict
+
 
 
 def runner(args):
     read_parser(args.input_reads)
     ref_names = mini_mapper(args.output_name,args.input_ref)
     #Add the option to parse multiple bed files
-    bed_dict = {}
+    bed_pos_dict = {}
     for bed_file in args.input_bed:
         primer_position_dict, bed_ref = bed_file_reader(bed_file)
-        bed_dict[bed_ref] = primer_position_dict
-    print(bed_dict)
+        bed_pos_dict[bed_ref] = primer_position_dict
+
     #Need to alter this to deal with a dict of bed files and also be able to choose the most relevant one. 
-    ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,bed_dict,args.wobble)
+    ref_names = ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,bed_pos_dict,args.wobble,args.all_vs_all)
     if args.out_sort:
         for ref in ref_names:
             sam_sort_index(args.output_name,ref)
@@ -154,6 +170,8 @@ def main():
                             help='Output sorted and indexed bam')
     parser.add_argument('--fastq', dest = 'out_fastq', action='store_true',
                             help='Output cleaned fastq file')
+    parser.add_argument('--all', dest= 'all_vs_all', action='store_true',
+                            help='Cleans the mapped reads using each input bed file rather than just the one matching the ref with most mapped reads')
 
     
     required_group = parser.add_argument_group('required arguments')
