@@ -135,19 +135,22 @@ def map_stats(ref_names, aln_file):
 
 
 def runner(args):
+    #Gathers the fastq.gz files
     read_parser(args.input_reads)
+    #Does the mapping and gets the reference names from the input ref file
     ref_names = mini_mapper(args.output_name,args.input_ref)
-    #Add the option to parse multiple bed files
+    #Parses the input bed files to get primer positions per amplicon and adds them to a dictionary
     bed_pos_dict = {}
     for bed_file in args.input_bed:
         primer_position_dict, bed_ref = bed_file_reader(bed_file)
         bed_pos_dict[bed_ref] = primer_position_dict
-
-    #Need to alter this to deal with a dict of bed files and also be able to choose the most relevant one. 
+    #Runs the mapping stats then cleans the bam file using the bed_pos_dict
     ref_names = ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,bed_pos_dict,args.wobble,args.all_vs_all)
+    #Optional: Sorts and indexes the cleaned bam file
     if args.out_sort:
         for ref in ref_names:
             sam_sort_index(args.output_name,ref)
+    #Optional: Pulls the fastqs out of the cleaned bam; necessary for input into further pipelines
     if args.out_fastq:
         for ref in ref_names:
             bam_to_fq(args.output_name,ref)
