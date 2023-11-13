@@ -11,6 +11,7 @@ import gzip
 
 #Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed!
 
+
 def read_parser(input_files,filter=False):
     #Deal with the read file input...currently need one read file for input to minimap2
     #This is probably an overly complicated way of doing this, especially if there is no filtering to do...
@@ -62,6 +63,7 @@ def bed_file_reader(input_bed):
         #Take each line of the bed file, strip \n, split on tab, keep first 4 elements to deal with 4 or 6 element bed files
         primer_list.append(line.rstrip("\n").split("\t")[:4])
     for line in primer_list:
+        bed_ref = line[0]
         if re.match(".*_LEFT", line[-1]):
             #This is a bit dodgy as it currently would need the LEFT primers to be first in the bed file... Maybe that is a safe assumption?
             primer_pos_dict[line[3].rstrip("_LEFT")] = {}
@@ -71,16 +73,17 @@ def bed_file_reader(input_bed):
             primer_pos_dict[line[3].rstrip("_RIGHT")].update({'RIGHT_START': int(line[1]),
                                                       'RIGHT_END': int(line[2])})
 
-    return primer_pos_dict
+    return primer_pos_dict, bed_ref
 
 
-def ampli_clean(input_file,ref_names,output_name, primer_position_dict, wobble):
+def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble):
     #This code iterates through the bam file and checks if each read starts and ends within a pair of primer positions.
     
     #Open the alignment file - expects BAM at the moment.
     aln_file = pysam.AlignmentFile(input_file,'rb')
 
     for ref in ref_names:
+        primer_position_dict = bed_dict[ref]
         #For each ref mapped against set up some files
         print("cleaning %s..." % ref)
         outfile = pysam.AlignmentFile("%s.%s.clean.bam" % (output_name, ref), "wb", template=aln_file)
@@ -118,8 +121,14 @@ def bam_to_fq(output_name,ref_name):
 def runner(args):
     read_parser(args.input_reads)
     ref_names = mini_mapper(args.output_name,args.input_ref)
-    primer_position_dict = bed_file_reader(args.input_bed)
-    ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,primer_position_dict,args.wobble)
+    #Add the option to parse multiple bed files
+    bed_dict = {}
+    for bed_file in args.input_bed:
+        primer_position_dict, bed_ref = bed_file_reader(bed_file)
+        bed_dict[bed_ref] = primer_position_dict
+    print(bed_dict)
+    #Need to alter this to deal with a dict of bed files and also be able to choose the most relevant one. 
+    ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,bed_dict,args.wobble)
     if args.out_sort:
         for ref in ref_names:
             sam_sort_index(args.output_name,ref)
@@ -154,7 +163,7 @@ def main():
                             help='Path to input fastq, currently expects them to be gzipped')
     required_group.add_argument('-i', '--input', dest = 'input_file',
                             help='Path to the BAM file you want to clean')
-    required_group.add_argument('-b', '--bed', dest = 'input_bed',
+    required_group.add_argument('-b', '--bed', dest = 'input_bed', nargs='+',
                             help='Path to the bed file you want to get positions from')
 
 
