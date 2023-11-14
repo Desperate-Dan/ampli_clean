@@ -35,7 +35,7 @@ def read_parser(input_files,filter=False):
         os.system("zcat %s > ./binned_reads.fastq.gz" % str(input_files).replace(",","").lstrip("[").rstrip("]"))
 
 
-def mini_mapper(output_name, input_ref):
+def mini_mapper(output_name, input_ref, secondary):
     #Map, sort and index ready for cleaning
     #Extract the ref names
     refs = open(input_ref, "r")
@@ -44,13 +44,15 @@ def mini_mapper(output_name, input_ref):
         if re.match(">", line):
             ref_names.append(line.lstrip(">").rstrip("\n"))
     print("Found %s reference(s): %s" % (len(ref_names),ref_names))
-
+    if secondary:
+        sec = "--secondary=no"
+    else:
+        sec = ""
     #Echo the minimap command
-    os.system("echo minimap2 -a -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (output_name, input_ref))
-    os.system("minimap2 -a -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (output_name, input_ref))
+    os.system("echo minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
+    os.system("minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
     pysam.sort("-o", "%s.sorted.bam" % output_name, "%s.bam" % output_name)
-    pysam.index("%s.sorted.bam" % output_name)
-    
+    pysam.index("%s.sorted.bam" % output_name)   
     return ref_names
 
 def bed_file_reader(input_bed):
@@ -135,19 +137,22 @@ def map_stats(ref_names, aln_file):
 
 
 def runner(args):
+    #Gathers the fastq.gz files
     read_parser(args.input_reads)
-    ref_names = mini_mapper(args.output_name,args.input_ref)
-    #Add the option to parse multiple bed files
+    #Does the mapping and gets the reference names from the input ref file
+    ref_names = mini_mapper(args.output_name,args.input_ref,args.sec)
+    #Parses the input bed files to get primer positions per amplicon and adds them to a dictionary
     bed_pos_dict = {}
     for bed_file in args.input_bed:
         primer_position_dict, bed_ref = bed_file_reader(bed_file)
         bed_pos_dict[bed_ref] = primer_position_dict
-
-    #Need to alter this to deal with a dict of bed files and also be able to choose the most relevant one. 
+    #Runs the mapping stats then cleans the bam file using the bed_pos_dict
     ref_names = ampli_clean("%s.sorted.bam" % args.output_name,ref_names,args.output_name,bed_pos_dict,args.wobble,args.all_vs_all)
+    #Optional: Sorts and indexes the cleaned bam file
     if args.out_sort:
         for ref in ref_names:
             sam_sort_index(args.output_name,ref)
+    #Optional: Pulls the fastqs out of the cleaned bam; necessary for input into further pipelines
     if args.out_fastq:
         for ref in ref_names:
             bam_to_fq(args.output_name,ref)
@@ -172,6 +177,8 @@ def main():
                             help='Output cleaned fastq file')
     parser.add_argument('--all', dest= 'all_vs_all', action='store_true',
                             help='Cleans the mapped reads using each input bed file rather than just the one matching the ref with most mapped reads')
+    parser.add_argument('--secondary', dest = 'sec', action='store_false',
+                            help='Allow secondary alignments. Default = False')
 
     
     required_group = parser.add_argument_group('required arguments')
