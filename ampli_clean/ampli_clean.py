@@ -68,6 +68,7 @@ def bed_file_reader(input_bed):
         bed_ref = line[0]
         if re.match(".*_LEFT", line[-1]):
             #This is a bit dodgy as it currently would need the LEFT primers to be first in the bed file... Maybe that is a safe assumption?
+            #Could add a try: statement to deal with this?
             primer_pos_dict[line[3].rstrip("_LEFT")] = {}
             primer_pos_dict[line[3].rstrip("_LEFT")].update({'LEFT_START': int(line[1]),
                                                       'LEFT_END': int(line[2])})
