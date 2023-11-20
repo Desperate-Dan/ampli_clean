@@ -12,26 +12,39 @@ import gzip
 #Minimap2 is a prerequisite in the env where this is run... could add a "which minimap2" check to see if it's installed!
 
 
-def read_parser(input_files,filter=False):
+def read_parser(input_files, min_len=False, max_len=False):
     #Deal with the read file input...currently need one read file for input to minimap2
     #This is probably an overly complicated way of doing this, especially if there is no filtering to do...
 
-    if filter:
+    if min_len or max_len:
         read_bin = gzip.open("binned_reads.fastq.gz", "wt")
-        counter = 1    
+        counter = 1
+        read_count = 0    
         for file in input_files:
             os.system("echo Binning read file %s" % counter)
             read_file = gzip.open(file, "rt")
             for record in SeqIO.parse(read_file, "fastq"):
-                #Could do some read filtering here in future    
-                SeqIO.write(record, read_bin, "fastq")
+                #Filtering happens here, possible that this could be sped up with SeqIO.index...    
+                if min_len and max_len:
+                    if min_len < len(record) < max_len:
+                        SeqIO.write(record, read_bin, "fastq")
+                        read_count += 1
+                elif min_len:
+                    if min_len < len(record):
+                        SeqIO.write(record, read_bin, "fastq")
+                        read_count += 1
+                elif max_len:
+                    if len(record) < max_len:
+                        SeqIO.write(record, read_bin, "fastq")
+                        read_count += 1
             read_file.close()
             counter += 1
+        print("%s reads have been binned after filtering" % read_count)    
         read_bin.close()
         return read_bin
 
     else:
-        #Simple but gross looking command to run zcat, probably a more succinct way of calling this
+        #Simple but gross looking command to run zcat if filtering is not needed, probably a more succinct way of calling this
         os.system("zcat %s > ./binned_reads.fastq.gz" % str(input_files).replace(",","").lstrip("[").rstrip("]"))
 
 
@@ -50,9 +63,12 @@ def mini_mapper(output_name, input_ref, secondary):
         sec = ""
     #Echo the minimap command
     os.system("echo minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
-    os.system("minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
-    pysam.sort("-o", "%s.sorted.bam" % output_name, "%s.bam" % output_name)
-    pysam.index("%s.sorted.bam" % output_name)   
+    os.system("minimap2 -a %s -x map-ont %s binned_reads.fastq.gz | samtools sort -o %s.sorted.bam && samtools index %s.sorted.bam" % (sec, input_ref, output_name, output_name))
+    #pysam.sort("-o", "%s.sorted.bam" % output_name, "%s.bam" % output_name, catch_stdout=False)
+    #pysam.index("%s.sorted.bam" % output_name, catch_stdout=False)
+
+    sys.stdout.close()
+
     return ref_names
 
 def bed_file_reader(input_bed):
@@ -68,6 +84,7 @@ def bed_file_reader(input_bed):
         bed_ref = line[0]
         if re.match(".*_LEFT", line[-1]):
             #This is a bit dodgy as it currently would need the LEFT primers to be first in the bed file... Maybe that is a safe assumption?
+            #Could add a try: statement to deal with this?
             primer_pos_dict[line[3].rstrip("_LEFT")] = {}
             primer_pos_dict[line[3].rstrip("_LEFT")].update({'LEFT_START': int(line[1]),
                                                       'LEFT_END': int(line[2])})
@@ -93,7 +110,7 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
     for ref in ref_names:
         primer_position_dict = bed_dict[ref] #Should add an error check here for if the bed ref and the fasta ref names match - perhaps could ignore this step if there is only one bed file given?
         #For each ref mapped against set up some files
-        print("cleaning %s..." % ref)
+        #print("cleaning %s..." % ref)
         outfile = pysam.AlignmentFile("%s.%s.clean.bam" % (output_name, ref), "wb", template=aln_file)
 
         #Fetch allows you to pull out reads matching to a single ref - could make a crude counter if we only want X number of refs returned
@@ -112,7 +129,7 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
 
 def sam_sort_index(output_name,ref_name):
     #Sort and index your bam file. Works on the assumption that the outfile is the correct name for your bam, may need to change.
-    print("sorting and indexing %s..." % ref_name)
+    #print("sorting and indexing %s..." % ref_name)
     clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
     clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref_name))    
 
@@ -120,25 +137,25 @@ def sam_sort_index(output_name,ref_name):
 
 
 def bam_to_fq(output_name,ref_name):
-    print("extracting %s fastqs..." % ref_name)
+    #print("extracting %s fastqs..." % ref_name)
     #Return your cleaned bam to fq for sticking into fieldbioinf
     fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
 
     return fq
 
+
 def map_stats(ref_names, aln_file):
     read_count_dict = {}
     for ref in ref_names:
         read_count_dict[ref] = aln_file.count(ref)
-        print("%s has ~%s mapped reads..." % (ref, read_count_dict[ref]))
+        #print("%s has ~%s mapped reads..." % (ref, read_count_dict[ref]))
     
     return read_count_dict
 
 
-
 def runner(args):
-    #Gathers the fastq.gz files
-    read_parser(args.input_reads)
+    #Gathers the fastq.gz files and filters if required
+    read_parser(args.input_reads,args.min_len,args.max_len)
     #Does the mapping and gets the reference names from the input ref file
     ref_names = mini_mapper(args.output_name,args.input_ref,args.sec)
     #Parses the input bed files to get primer positions per amplicon and adds them to a dictionary
@@ -165,7 +182,7 @@ def main():
     '''
     parser = argparse.ArgumentParser(description='Creates a "clean" bam file containing only reads that start and end near primer sites.')
 
-    parser.add_argument('-w', '--wobble', dest='wobble', default=10,
+    parser.add_argument('-w', '--wobble', dest='wobble', type=int, default=10,
                             help='If coverage is below this it will be masked')
     parser.add_argument('-n', '--ref-name', dest='ref_name',
                             help='Name of ref the bam files were aligned to')
@@ -178,7 +195,11 @@ def main():
     parser.add_argument('--all', dest= 'all_vs_all', action='store_true',
                             help='Cleans the mapped reads using each input bed file rather than just the one matching the ref with most mapped reads')
     parser.add_argument('--secondary', dest = 'sec', action='store_false',
-                            help='Allow secondary alignments. Default = False')
+                            help='Allow minimpa2 to output secondary alignments. Default = False')
+    parser.add_argument('--min', dest = 'min_len', type=int,
+                            help='Filter reads when binning by minimum read length')
+    parser.add_argument('--max', dest='max_len', type=int,
+                            help='Filter reads when binning by maximum read length')
 
     
     required_group = parser.add_argument_group('required arguments')
