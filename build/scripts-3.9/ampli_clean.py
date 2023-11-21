@@ -39,8 +39,9 @@ def read_parser(input_files, min_len=False, max_len=False):
                         read_count += 1
             read_file.close()
             counter += 1
-        print("%s reads have been binned after filtering" % read_count)    
+        os.system("echo %s reads have been binned after filtering" % read_count)    
         read_bin.close()
+        
         return read_bin
 
     else:
@@ -48,27 +49,23 @@ def read_parser(input_files, min_len=False, max_len=False):
         os.system("zcat %s > ./binned_reads.fastq.gz" % str(input_files).replace(",","").lstrip("[").rstrip("]"))
 
 
-def mini_mapper(output_name, input_ref, secondary):
+def mini_mapper(output_name, input_ref, secondary=False):
     #Map, sort and index ready for cleaning
     #Extract the ref names
-    refs = open(input_ref, "r")
-    ref_names = []
-    for line in refs:
-        if re.match(">", line):
-            ref_names.append(line.lstrip(">").rstrip("\n"))
-    print("Found %s reference(s): %s" % (len(ref_names),ref_names))
-    if secondary:
-        sec = "--secondary=no"
-    else:
-        sec = ""
+    with open(input_ref, "r") as refs:
+        ref_names = []
+        for line in refs:
+            if re.match(">", line):
+                ref_names.append(line.lstrip(">").rstrip("\n"))
+        #print("Found %s reference(s): %s" % (len(ref_names),ref_names))
+        if secondary:
+            sec = "--secondary=no"
+        else:
+            sec = ""
     #Echo the minimap command
     os.system("echo minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
     os.system("minimap2 -a %s -x map-ont %s binned_reads.fastq.gz | samtools sort -o %s.sorted.bam && samtools index %s.sorted.bam" % (sec, input_ref, output_name, output_name))
-    #pysam.sort("-o", "%s.sorted.bam" % output_name, "%s.bam" % output_name, catch_stdout=False)
-    #pysam.index("%s.sorted.bam" % output_name, catch_stdout=False)
-
-    sys.stdout.close()
-
+    
     return ref_names
 
 def bed_file_reader(input_bed):
@@ -129,7 +126,7 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
 
 def sam_sort_index(output_name,ref_name):
     #Sort and index your bam file. Works on the assumption that the outfile is the correct name for your bam, may need to change.
-    #print("sorting and indexing %s..." % ref_name)
+    os.system("echo sorting and indexing %s..." % ref_name)
     clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
     clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref_name))    
 
@@ -137,7 +134,7 @@ def sam_sort_index(output_name,ref_name):
 
 
 def bam_to_fq(output_name,ref_name):
-    #print("extracting %s fastqs..." % ref_name)
+    os.system("echo extracting %s fastqs..." % ref_name)
     #Return your cleaned bam to fq for sticking into fieldbioinf
     fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
 
@@ -148,7 +145,7 @@ def map_stats(ref_names, aln_file):
     read_count_dict = {}
     for ref in ref_names:
         read_count_dict[ref] = aln_file.count(ref)
-        #print("%s has ~%s mapped reads..." % (ref, read_count_dict[ref]))
+        os.system("echo %s has ~%s mapped reads..." % (ref, read_count_dict[ref]))
     
     return read_count_dict
 
