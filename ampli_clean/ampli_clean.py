@@ -57,7 +57,7 @@ def mini_mapper(output_name, input_ref, secondary=False):
         for line in refs:
             if re.match(">", line):
                 ref_names.append(line.lstrip(">").rstrip("\n"))
-        #print("Found %s reference(s): %s" % (len(ref_names),ref_names))
+        os.system("echo Found %s references: %s" % (len(ref_names),ref_names))
         if secondary:
             sec = "--secondary=no"
         else:
@@ -107,7 +107,7 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
     for ref in ref_names:
         primer_position_dict = bed_dict[ref] #Should add an error check here for if the bed ref and the fasta ref names match - perhaps could ignore this step if there is only one bed file given?
         #For each ref mapped against set up some files
-        #print("cleaning %s..." % ref)
+        os.system("echo cleaning %s..." % ref)
         outfile = pysam.AlignmentFile("%s.%s.clean.bam" % (output_name, ref), "wb", template=aln_file)
 
         #Fetch allows you to pull out reads matching to a single ref - could make a crude counter if we only want X number of refs returned
@@ -126,7 +126,6 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
 
 def sam_sort_index(output_name,ref_name):
     #Sort and index your bam file. Works on the assumption that the outfile is the correct name for your bam, may need to change.
-    os.system("echo sorting and indexing %s..." % ref_name)
     clean_bam_sorted = pysam.sort("-o", "%s.%s.clean.sorted.bam" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
     clean_bam_index = pysam.index("%s.%s.clean.sorted.bam" % (output_name, ref_name))    
 
@@ -134,7 +133,6 @@ def sam_sort_index(output_name,ref_name):
 
 
 def bam_to_fq(output_name,ref_name):
-    os.system("echo extracting %s fastqs..." % ref_name)
     #Return your cleaned bam to fq for sticking into fieldbioinf
     fq = pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref_name), "%s.%s.clean.bam" % (output_name, ref_name))
 
@@ -190,7 +188,7 @@ def main():
     parser.add_argument('--fastq', dest = 'out_fastq', action='store_true',
                             help='Output cleaned fastq file')
     parser.add_argument('--all', dest= 'all_vs_all', action='store_true',
-                            help='Cleans the mapped reads using each input bed file rather than just the one matching the ref with most mapped reads')
+                            help='Cleans each references mapped reads using the appropriate input bed file rather than ust the one with the most mapped reads')
     parser.add_argument('--secondary', dest = 'sec', action='store_false',
                             help='Allow minimpa2 to output secondary alignments. Default = False')
     parser.add_argument('--min', dest = 'min_len', type=int,
