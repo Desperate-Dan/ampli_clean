@@ -64,8 +64,11 @@ def mini_mapper(output_name, input_ref, secondary=False):
             sec = ""
     #Echo the minimap command
     os.system("echo minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
-    os.system("minimap2 -a %s -x map-ont %s binned_reads.fastq.gz | samtools sort -o %s.sorted.bam && samtools index %s.sorted.bam" % (sec, input_ref, output_name, output_name))
+    os.system("minimap2 -a %s -x map-ont -o %s.bam %s binned_reads.fastq.gz" % (sec, output_name, input_ref))
     
+    pysam.sort("-o", "%s.sorted.bam" % output_name, "%s.bam" % output_name, catch_stdout=False)
+    pysam.index("%s.sorted.bam" % output_name, catch_stdout=False)
+
     return ref_names
 
 def bed_file_reader(input_bed):
