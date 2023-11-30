@@ -104,7 +104,7 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
     read_count_dict = map_stats(ref_names,aln_file, log)
 
     #This checks if the ref with the most mapping reads is greater than 0 and exits at this point - necessary for clean nextflow execution
-    if read_count_dict[max(read_count_dict)] == 0:
+    if read_count_dict[max(read_count_dict, key=read_count_dict.get)] == 0:
         aln_file.close()
         logger("%s has no mapped reads... Exiting..." % input_file, log)
         sys.exit(0)
