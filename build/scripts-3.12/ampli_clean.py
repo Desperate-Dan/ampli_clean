@@ -118,14 +118,18 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
         #For each ref mapped against set up some files
         logger("cleaning %s..." % ref, log)
         outfile = pysam.AlignmentFile("%s.%s.clean.bam" % (output_name, ref), "wb", template=aln_file)
-
+        #Counter for cleaned reads per ref
+        counter = 0
         #Fetch allows you to pull out reads matching to a single ref - could make a crude counter if we only want X number of refs returned
         for read in aln_file.fetch(ref):
             for primer in primer_position_dict:
                 #This would be "strict" where a sequence fragment needs to start and end in a primer site. Could also add a more permissive mode?
                 if (primer_position_dict[primer]["LEFT_START"] - wobble < read.reference_start < primer_position_dict[primer]["LEFT_END"] + wobble):
                     if (primer_position_dict[primer]["RIGHT_START"] - wobble < read.reference_end < primer_position_dict[primer]["RIGHT_END"] + wobble):
+                        counter += 1
                         outfile.write(read)
+        logger("%s has ~%s mapped reads after cleaning..." % (ref, counter), log)
+
         outfile.close()
 
     aln_file.close()
@@ -195,9 +199,7 @@ def main():
     parser = argparse.ArgumentParser(description='Creates a "clean" bam file containing only reads that start and end near primer sites.')
 
     parser.add_argument('-w', '--wobble', dest='wobble', type=int, default=10,
-                            help='If coverage is below this it will be masked')
-    parser.add_argument('-n', '--ref-name', dest='ref_name',
-                            help='Name of ref the bam files were aligned to')
+                            help='Number of bases around the primer binding sites that reads can start or end and still be considered amplicon spanning. Default = 10')
     parser.add_argument('-o', '--output-name', dest='output_name', default="clean",
                             help='Prefix for the output. Default = "clean"')
     parser.add_argument('-s', dest = 'out_sort', action='store_true',
@@ -214,6 +216,10 @@ def main():
                             help='Filter reads when binning by maximum read length')
     parser.add_argument('--log', dest='log', action='store_true',
                             help='Write messages to log file')
+    parser.add_argument('--bam', dest = 'input_bam',
+                            help='Path to the BAM file you want to clean (currently non-functional)')
+    parser.add_argument('-n', '--ref-name', dest='ref_name',
+                            help='Name of ref the bam files were aligned to (currently non-functional)')
 
     
     required_group = parser.add_argument_group('required arguments')
@@ -221,8 +227,6 @@ def main():
                             help='Path to input ref fasta')
     required_group.add_argument('-f', dest = 'input_reads', nargs='+',
                             help='Path to input fastq, currently expects them to be gzipped')
-    required_group.add_argument('-i', '--input', dest = 'input_file',
-                            help='Path to the BAM file you want to clean')
     required_group.add_argument('-b', '--bed', dest = 'input_bed', nargs='+',
                             help='Path to the bed file you want to get positions from')
 
