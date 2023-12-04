@@ -130,7 +130,14 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
                         outfile.write(read)
         logger("%s has ~%s mapped reads after cleaning..." % (ref, counter), log)
 
+        #Need to remove empty outfiles after cleaning
+        if counter == 0:
+            logger("No reads left after cleaning...removing output...")
+            os.remove("%s.%s.clean.bam" % (output_name, ref))
+            sys.exit(0)
+
         outfile.close()
+        
 
     aln_file.close()
     
