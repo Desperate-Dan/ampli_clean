@@ -131,7 +131,8 @@ def ampli_clean(input_file,ref_names,output_name, bed_dict, wobble, all_vs_all=F
         logger("%s has ~%s mapped reads after cleaning..." % (ref, counter), log)
 
         #Need to remove empty outfiles after cleaning
-        if counter == 0:
+        #It seems that longhot in fieldbioinformatics will fail if passed an empty file or a file with exactly one mapped read so filtering based on that
+        if counter <= 1:
             logger("No reads left after cleaning...removing output...")
             os.remove("%s.%s.clean.bam" % (output_name, ref))
             sys.exit(0)
