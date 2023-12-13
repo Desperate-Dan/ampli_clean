@@ -56,7 +56,10 @@ def mini_mapper(output_name, input_ref, secondary=False, log=False):
         ref_names = []
         for line in refs:
             if re.match(">", line):
-                ref_names.append(line.lstrip(">").rstrip("\n"))
+                if re.match("\s*", line):
+                    ref_names.append(line.lstrip(">").rstrip("\n").split()[0])    
+                else:
+                    ref_names.append(line.lstrip(">").rstrip("\n"))
         logger("Found %s references: %s" % (len(ref_names),ref_names), log)
         if secondary:
             sec = "--secondary=no"
@@ -168,6 +171,7 @@ def map_stats(ref_names, aln_file, log):
     
     return read_count_dict
 
+
 def logger(msg,log=False):
     if log:
         with open("log.txt", "a") as log_file:
@@ -176,12 +180,33 @@ def logger(msg,log=False):
         os.system("echo %s" % msg)
 
 
+def skip_clean(ref_names, input_bam, output_name, log=False, read_cutoff=50):
+    with pysam.AlignmentFile(input_bam, 'rb') as aln_file:
+        #Get a dict of counts of reads for each ref using map_stats
+        read_count_dict = map_stats(ref_names, aln_file, log)
+        #Parse that and kick out any that are below the cut off
+        above_cutoff_dict = {}
+        for ref in read_count_dict:
+            if read_count_dict[ref] >= read_cutoff:
+                above_cutoff_dict[ref] = read_count_dict[ref]
+        if not above_cutoff_dict:
+            logger("No refs have more than %s reads mapping to them...exiting..." % read_cutoff)
+            sys.exit(0)
+        #Pull out the reads that correspond to each remaining ref
+        for ref in above_cutoff_dict:
+            with pysam.AlignmentFile("%s.%s.bam" % (output_name, ref), "wb", template=aln_file) as outfile:
+                for read in aln_file.fetch(ref):
+                    outfile.write(read)
+        sys.exit(0)
+
 
 def runner(args):
     #Gathers the fastq.gz files and filters if required
     read_parser(args.input_reads,args.min_len,args.max_len,args.log)
     #Does the mapping and gets the reference names from the input ref file
     ref_names = mini_mapper(args.output_name,args.input_ref,args.sec,args.log)
+    if args.map_only:
+        skip_clean(ref_names, "%s.sorted.bam" % args.output_name, args.output_name, args.log, args.read_cutoff)
     #Parses the input bed files to get primer positions per amplicon and adds them to a dictionary
     bed_pos_dict = {}
     for bed_file in args.input_bed:
@@ -228,6 +253,10 @@ def main():
                             help='Path to the BAM file you want to clean (currently non-functional)')
     parser.add_argument('-n', '--ref-name', dest='ref_name',
                             help='Name of ref the bam files were aligned to (currently non-functional)')
+    parser.add_argument('--map-only', dest='map_only', action='store_true',
+                            help='Skip the bam cleaning with bedfile step, only map against the references provided. The output flags still work.')
+    parser.add_argument('--map-cutoff', dest='read_cutoff', type=int, default=50,
+                            help='Cutoff for number of mapped reads when using --map-only. Default = 50')
 
     
     required_group = parser.add_argument_group('required arguments')
