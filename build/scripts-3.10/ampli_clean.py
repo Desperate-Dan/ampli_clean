@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!python
 from Bio import SeqIO
 import itertools
 import os
