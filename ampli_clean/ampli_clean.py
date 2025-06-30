@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
 import itertools
 import os
 import argparse
@@ -180,7 +182,7 @@ def logger(msg,log=False):
         os.system("echo %s" % msg)
 
 
-def skip_clean(ref_names, input_bam, output_name, log=False, out_fastq=False, read_cutoff=50):
+def skip_clean(ref_names, input_bam, output_name, log=False, out_fastq=False, wtia=False, read_cutoff=50):
     with pysam.AlignmentFile(input_bam, 'rb') as aln_file:
         #Get a dict of counts of reads for each ref using map_stats
         read_count_dict = map_stats(ref_names, aln_file, log)
@@ -193,14 +195,45 @@ def skip_clean(ref_names, input_bam, output_name, log=False, out_fastq=False, re
             logger("No refs have more than %s reads mapping to them...exiting..." % read_cutoff)
             sys.exit(0)
         #Pull out the reads that correspond to each remaining ref
+        if wtia:
+            #Bit about extracting top ref name
+            top_ref = max(read_count_dict, key=read_count_dict.get)
+            logger("%s is the ref with most reads mapped: %s" % (top_ref, read_count_dict[top_ref]))
         for ref in above_cutoff_dict:
-            with pysam.AlignmentFile("%s.%s.bam" % (output_name, ref), "wb", template=aln_file) as outfile:
-                for read in aln_file.fetch(ref):
-                    outfile.write(read)
+            if wtia:
+                continue
+            else:
+                with pysam.AlignmentFile("%s.%s.bam" % (output_name, ref), "wb", template=aln_file) as outfile:
+                    for read in aln_file.fetch(ref):
+                        outfile.write(read)
             if out_fastq:
                 pysam.fastq("-0", "%s.%s.fastq.gz" % (output_name, ref), "%s.%s.bam" % (output_name, ref))
-        sys.exit(0)
+        if wtia:
+            return top_ref
+        else:
+            sys.exit(0)
 
+def winner_takes_it_all(top_ref,output_name,input_ref,secondary=False,log=False):
+    #Get the top ref seq from input refs
+    if secondary:
+        sec = "--secondary=no"
+    else:
+        sec = ""
+    with open(input_ref) as file:
+        for record in SeqIO.parse(file, "fasta"):
+            if record.id == top_ref:
+                with open("ref_%s.fasta" % top_ref, "w") as out_file:
+                    SeqIO.write(SeqRecord(Seq(record.seq), id=record.id, name=record.name, description=record.description), out_file, "fasta")
+    #This writes out the new ref, just need to map on it now.
+    #Echo the minimap command
+    output_name_ref = output_name + "_" + top_ref
+    logger("minimap2 -a %s -x map-ont -o %s.bam ref_%s.fasta binned_reads.fastq.gz" % (sec, output_name_ref, top_ref), log)
+    os.system("minimap2 -a %s -x map-ont -o %s.bam ref_%s.fasta binned_reads.fastq.gz" % (sec, output_name_ref, top_ref))
+
+    pysam.sort("-o", "%s.sorted.bam" % output_name_ref, "%s.bam" % output_name_ref, catch_stdout=False)
+    pysam.index("%s.sorted.bam" % output_name_ref, catch_stdout=False)
+    
+    sys.exit(0)
 
 def runner(args):
     #Gathers the fastq.gz files and filters if required
@@ -208,7 +241,9 @@ def runner(args):
     #Does the mapping and gets the reference names from the input ref file
     ref_names = mini_mapper(args.output_name,args.input_ref,args.sec,args.log)
     if args.map_only:
-        skip_clean(ref_names, "%s.sorted.bam" % args.output_name, args.output_name, args.log, args.out_fastq, args.read_cutoff)
+        top_ref = skip_clean(ref_names, "%s.sorted.bam" % args.output_name, args.output_name, args.log, args.out_fastq, args.wtia, args.read_cutoff)
+        if args.wtia:
+            winner_takes_it_all(top_ref, args.output_name,args.input_ref,args.sec,args.log)
     #Parses the input bed files to get primer positions per amplicon and adds them to a dictionary
     bed_pos_dict = {}
     for bed_file in args.input_bed:
@@ -259,6 +294,8 @@ def main():
                             help='Skip the bam cleaning with bedfile step, only map against the references provided. The output flags still work.')
     parser.add_argument('--map-cutoff', dest='read_cutoff', type=int, default=50,
                             help='Cutoff for number of mapped reads when using --map-only. Default = 50')
+    parser.add_argument('--wtia', dest='wtia', action='store_true',
+                            help='Winner Takes It All - if map_only, re-maps all reads against the top references and outputs that bam')
 
     
     required_group = parser.add_argument_group('required arguments')
